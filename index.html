@@ -1,0 +1,1852 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>時間価値家計簿</title>
+  <meta name="description" content="使ったお金を「何時間分の労働か」で見える化する家計簿。iPhoneのタッチ決済から入力でき、使いみちを円グラフで確認できます。記録は端末の中だけに保存します。">
+  <meta property="og:title" content="時間価値家計簿">
+  <meta property="og:description" content="使ったお金を「何時間分の労働か」で見える化する家計簿。使いみちは円グラフで確認できます。">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <meta name="theme-color" content="#2f6fb0">
+  <meta name="apple-mobile-web-app-title" content="時間価値家計簿">
+  <link rel="icon" href="icon.png">
+  <link rel="apple-touch-icon" href="icon.png">
+  <style>
+    :root {
+      --bg: #f3f6f9;
+      --card: #ffffff;
+      --text: #1f2933;
+      --sub: #5f6b7a;
+      --line: #d9e0e7;
+      --accent: #2f6fb0;
+      --accent-soft: #e6f0fa;
+      --income: #1f7a4d;
+      --income-soft: #e5f4ec;
+      --danger: #c62828;
+      --danger-soft: #fdeceb;
+      --notice-soft: #fff6dd;
+      --notice-line: #e6c35c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Meiryo", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif;
+      font-size: 18px;
+      line-height: 1.6;
+    }
+    main {
+      max-width: 560px;
+      margin: 0 auto;
+      padding: 20px 16px 64px;
+    }
+    h1 {
+      font-size: 26px;
+      margin: 4px 0 16px;
+    }
+    h2 {
+      font-size: 21px;
+      margin: 0 0 14px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 20px 18px;
+      margin-bottom: 18px;
+    }
+    .hidden { display: none !important; }
+
+    /* お知らせ */
+    .banner {
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 18px;
+      font-size: 17px;
+    }
+    .banner.notice {
+      background: var(--notice-soft);
+      border: 1px solid var(--notice-line);
+    }
+    .banner.danger {
+      background: var(--danger-soft);
+      border: 1px solid var(--danger);
+      color: var(--danger);
+    }
+    .banner p { margin: 0 0 10px; }
+
+    /* 今月のまとめ */
+    .remain-label {
+      margin: 0;
+      color: var(--sub);
+      font-size: 17px;
+    }
+    .remain-amount {
+      margin: 2px 0 0;
+      font-size: 40px;
+      font-weight: 700;
+      line-height: 1.3;
+      word-break: break-all;
+    }
+    .remain-labor {
+      margin: 2px 0 0;
+      font-size: 20px;
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .alert {
+      margin: 12px 0 0;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: var(--danger-soft);
+      color: var(--danger);
+      font-weight: 700;
+      font-size: 17px;
+    }
+    .alert.soft {
+      background: var(--notice-soft);
+      color: var(--text);
+      font-weight: 400;
+    }
+    .rows {
+      margin: 16px 0 0;
+      border-top: 1px solid var(--line);
+    }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .row:last-child { border-bottom: none; padding-bottom: 0; }
+    .row dt { color: var(--sub); flex-shrink: 0; }
+    .row dd {
+      margin: 0;
+      text-align: right;
+      font-weight: 700;
+      font-size: 20px;
+    }
+    .row dd small {
+      display: block;
+      font-size: 15px;
+      color: var(--accent);
+    }
+    .is-danger { color: var(--danger) !important; }
+
+    /* フォーム */
+    label, .field-label {
+      display: block;
+      font-weight: 700;
+      margin: 18px 0 8px;
+    }
+    .field-label:first-child, form > label:first-child { margin-top: 0; }
+    .optional { font-weight: 400; color: var(--sub); font-size: 15px; }
+    input, select {
+      width: 100%;
+      font: inherit;
+      font-size: 20px;
+      padding: 12px 14px;
+      border: 1px solid #b8c4d0;
+      border-radius: 10px;
+      background: #fff;
+      color: var(--text);
+    }
+    input:focus, select:focus, button:focus-visible {
+      outline: 3px solid #8bb8e6;
+      outline-offset: 1px;
+    }
+    .amount-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .amount-wrap input {
+      font-size: 26px;
+      font-weight: 700;
+      text-align: right;
+    }
+    .amount-wrap span { font-size: 20px; }
+
+    button {
+      font: inherit;
+      font-size: 18px;
+      min-height: 52px;
+      padding: 8px 14px;
+      border-radius: 10px;
+      border: 1px solid #b8c4d0;
+      background: #fff;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .toggle button {
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .toggle button[aria-pressed="true"][data-type="expense"] {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .toggle button[aria-pressed="true"][data-type="income"] {
+      background: var(--income);
+      border-color: var(--income);
+      color: #fff;
+    }
+    .cats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .cat-group + .cat-group { margin-top: 12px; }
+    .cat-group-title {
+      margin: 0 0 6px;
+      font-size: 15px;
+      color: var(--sub);
+    }
+    .cats button {
+      padding: 8px 4px;
+      font-size: 17px;
+    }
+    .link-btn {
+      width: 100%;
+      margin-top: 12px;
+      min-height: 46px;
+      font-size: 16px;
+    }
+    #category-settings { margin-top: 22px; }
+    .check-heading {
+      margin: 16px 0 0;
+      font-size: 18px;
+    }
+    .genre {
+      border: 0;
+      padding: 0;
+      margin: 12px 0 0;
+      min-width: 0;
+    }
+    .genre legend {
+      padding: 0;
+      margin-bottom: 6px;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--sub);
+    }
+    .checks {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 48px;
+      margin: 0;
+      padding: 6px 10px;
+      border: 1px solid #b8c4d0;
+      border-radius: 10px;
+      background: #fff;
+      font-size: 17px;
+      font-weight: 400;
+      cursor: pointer;
+    }
+    .check input {
+      width: 22px;
+      height: 22px;
+      flex: none;
+      margin: 0;
+      padding: 0;
+    }
+    .check.locked {
+      background: var(--bg);
+      color: var(--sub);
+      cursor: default;
+    }
+    .cats button[aria-pressed="true"] {
+      background: var(--accent-soft);
+      border: 2px solid var(--accent);
+      font-weight: 700;
+    }
+    .primary {
+      width: 100%;
+      margin-top: 22px;
+      min-height: 58px;
+      font-size: 21px;
+      font-weight: 700;
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .secondary {
+      width: 100%;
+      margin-top: 10px;
+    }
+    .message {
+      margin: 12px 0 0;
+      font-weight: 700;
+      min-height: 1em;
+    }
+    .message.ok { color: var(--income); }
+    .message.error { color: var(--danger); }
+    .message:empty { margin: 0; }
+
+    /* 記録の一覧 */
+    .records {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .record {
+      border-top: 1px solid var(--line);
+      padding: 14px 0;
+    }
+    .record:first-child { border-top: none; padding-top: 0; }
+    .rec-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      color: var(--sub);
+      font-size: 16px;
+    }
+    .badge {
+      font-size: 14px;
+      font-weight: 700;
+      padding: 1px 8px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .record.income .badge {
+      background: var(--income-soft);
+      color: var(--income);
+    }
+    .rec-cat { color: var(--text); font-weight: 700; }
+    .rec-amount {
+      font-size: 22px;
+      font-weight: 700;
+      margin-top: 2px;
+    }
+    .record.income .rec-amount { color: var(--income); }
+    .rec-labor {
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .rec-memo {
+      color: var(--sub);
+      font-size: 16px;
+      word-break: break-all;
+    }
+    .rec-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .rec-actions button {
+      flex: 1;
+      min-height: 46px;
+      font-size: 17px;
+    }
+    .rec-actions .delete {
+      color: var(--danger);
+      border-color: #e2a9a6;
+    }
+    .tagline {
+      margin: -10px 0 16px;
+      color: var(--sub);
+      font-size: 16px;
+    }
+
+    /* 使いみちの内訳（円グラフ） */
+    .chart-sub {
+      margin: -8px 0 12px;
+      color: var(--sub);
+      font-size: 16px;
+    }
+    .chart-wrap {
+      position: relative;
+      width: min(240px, 70vw);
+      margin: 8px auto 16px;
+    }
+    .chart-wrap svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .pie-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      line-height: 1.3;
+      pointer-events: none;
+    }
+    .pie-center span { font-size: 14px; color: var(--sub); }
+    .pie-center strong { font-size: 20px; }
+    .pie-center small { font-size: 13px; color: var(--accent); font-weight: 700; }
+    .breakdown {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .bd-row {
+      display: flex;
+      gap: 10px;
+      padding: 10px 0;
+      border-top: 1px solid var(--line);
+    }
+    .bd-row:first-child { border-top: none; }
+    .swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      flex: none;
+      margin-top: 6px;
+    }
+    .bd-main { flex: 1; min-width: 0; }
+    .bd-top, .bd-sub {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .bd-name, .bd-amount { font-weight: 700; }
+    .bd-sub { color: var(--sub); font-size: 15px; }
+    .bd-labor { color: var(--accent); font-weight: 700; }
+    .bd-items {
+      margin-top: 2px;
+      color: var(--sub);
+      font-size: 14px;
+      word-break: break-all;
+    }
+
+    /* タッチ決済からの入力 */
+    .intake {
+      margin: 0 0 14px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: var(--accent-soft);
+      border: 1px solid var(--accent);
+      font-weight: 700;
+      font-size: 17px;
+    }
+
+    /* 使い方 */
+    .guide summary {
+      display: flex;
+      align-items: center;
+      min-height: 44px;
+      font-size: 20px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .guide h3 { font-size: 18px; margin: 18px 0 6px; }
+    .guide ol { padding-left: 1.4em; margin: 6px 0; }
+    .guide li { margin: 4px 0; }
+    .guide p { margin: 6px 0; }
+    .code {
+      display: block;
+      margin-top: 8px;
+      padding: 10px 12px;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font-family: ui-monospace, Menlo, monospace;
+      font-size: 14px;
+      word-break: break-all;
+    }
+    code {
+      font-family: ui-monospace, Menlo, monospace;
+      font-size: 0.9em;
+      background: var(--bg);
+      padding: 0 4px;
+      border-radius: 4px;
+    }
+    .footer {
+      margin: 24px 0 0;
+      text-align: center;
+      color: var(--sub);
+      font-size: 14px;
+    }
+
+    /* キャラクター（レオナルド、通称レオ） */
+    .char-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .char-figure { width: 92px; flex: none; }
+    .char-figure svg { display: block; width: 100%; height: auto; overflow: visible; }
+    .char-info { flex: 1; min-width: 0; }
+    .char-name { margin: 0; font-weight: 700; font-size: 18px; }
+    .char-name small { color: var(--accent); font-size: 15px; margin-left: 4px; }
+    .xp-track {
+      height: 8px;
+      margin: 6px 0 4px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      overflow: hidden;
+    }
+    .xp-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+    .xp-text { margin: 0; color: var(--sub); font-size: 14px; }
+    .bubble {
+      position: relative;
+      margin: 10px 0 0;
+      padding: 10px 12px;
+      border: 2px solid var(--text);
+      border-radius: 14px;
+      background: #fff;
+      font-weight: 700;
+      font-size: 18px;
+      line-height: 1.4;
+    }
+    .bubble::before {
+      content: "";
+      position: absolute;
+      left: -9px;
+      top: 14px;
+      border: 8px solid transparent;
+      border-right-color: var(--text);
+      border-left: 0;
+    }
+    .bubble-sub {
+      display: block;
+      margin-top: 2px;
+      color: var(--sub);
+      font-size: 14px;
+      font-weight: 400;
+    }
+    .char-pop {
+      position: fixed;
+      right: 12px;
+      bottom: 12px;
+      z-index: 20;
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      max-width: calc(100vw - 24px);
+      animation: pop-in .25s ease-out;
+      cursor: pointer;
+    }
+    .char-pop .bubble {
+      margin: 0 0 40px;
+      max-width: 230px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, .15);
+    }
+    .char-pop .bubble::before {
+      left: auto;
+      right: -9px;
+      top: auto;
+      bottom: 12px;
+      border-right: 0;
+      border-left: 8px solid var(--text);
+    }
+    .char-pop .char-figure { width: 72px; }
+    @keyframes pop-in {
+      from { transform: translateY(16px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes hop {
+      0%, 100% { transform: translateY(0); }
+      40% { transform: translateY(-8px); }
+    }
+    @keyframes shake {
+      0%, 100% { transform: rotate(0); }
+      25% { transform: rotate(-6deg); }
+      75% { transform: rotate(6deg); }
+    }
+    .char-figure.hop svg { animation: hop .5s ease 2; }
+    .char-figure.shake svg { animation: shake .35s ease 3; transform-origin: 50% 90%; }
+    @media (prefers-reduced-motion: reduce) {
+      .char-pop, .char-figure.hop svg, .char-figure.shake svg { animation: none; }
+    }
+    #character-settings { margin-top: 22px; }
+
+    /* 開いてすぐ見える部分 */
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      margin: 0 0 10px;
+    }
+    .topbar h1 { font-size: 20px; margin: 0; }
+    .today { color: var(--sub); font-size: 15px; flex: none; }
+    .status { padding: 16px 16px 18px; }
+    .status .remain-amount { font-size: 36px; }
+    .status-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .chip {
+      flex: none;
+      padding: 2px 10px;
+      border-radius: 999px;
+      border: 1.5px solid currentColor;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .chip.good { color: #1f7a4d; background: #e5f4ec; }
+    .chip.warn { color: #8a5a00; background: #fff3d6; }
+    .chip.bad { color: var(--danger); background: var(--danger-soft); }
+    .meter {
+      position: relative;
+      height: 12px;
+      margin: 12px 0 4px;
+      border-radius: 999px;
+      background: #e3e9ef;
+    }
+    .meter-fill {
+      height: 100%;
+      max-width: 100%;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+    .meter-fill.warn { background: #e0a800; }
+    .meter-fill.bad { background: var(--danger); }
+    .meter-mark {
+      position: absolute;
+      top: -4px;
+      bottom: -4px;
+      width: 2px;
+      margin-left: -1px;
+      border-radius: 1px;
+      background: var(--text);
+    }
+    .meter-text { margin: 0; color: var(--sub); font-size: 14px; }
+    .lines { margin: 12px 0 0; }
+    .line {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      padding: 6px 0;
+      border-top: 1px solid var(--line);
+    }
+    .line dt { flex: none; color: var(--sub); font-size: 15px; }
+    .line dd {
+      margin: 0;
+      min-width: 0;
+      text-align: right;
+      font-size: 17px;
+      font-weight: 700;
+    }
+    .line .num { white-space: nowrap; }
+    .line dd small {
+      margin-right: 8px;
+      font-size: 13px;
+      color: var(--accent);
+    }
+    .line dd small:empty { display: none; }
+    .line dd small.is-danger { color: var(--danger); }
+    .mini { margin-top: 12px; }
+    .mini-bar {
+      display: flex;
+      gap: 2px;
+      height: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .mini-bar span { display: block; height: 100%; min-width: 2px; }
+    .mini-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px 12px;
+      margin: 6px 0 0;
+      padding: 0;
+      list-style: none;
+      font-size: 14px;
+    }
+    .mini-legend li { display: flex; align-items: center; gap: 4px; }
+    .mini-legend i {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+    }
+    .record-btn { margin-top: 14px; }
+    #char-card { padding: 12px 14px; }
+    #char-card .char-figure { width: 58px; }
+    #char-card .bubble { margin-top: 6px; padding: 6px 10px; font-size: 16px; }
+    #char-card .xp-track { margin: 4px 0 0; height: 6px; }
+    .char-name .xp-text { display: inline; font-size: 13px; font-weight: 400; }
+    .banner.notice { padding: 10px 14px; }
+
+    .month-picker { margin-bottom: 16px; }
+    .month-picker label { margin: 0 0 8px; }
+    .empty {
+      color: var(--sub);
+      margin: 0;
+    }
+    .help {
+      color: var(--sub);
+      font-size: 15px;
+      margin: 6px 0 0;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="topbar">
+      <h1>時間価値家計簿</h1>
+      <span class="today" id="today-label"></span>
+    </header>
+
+
+    <div id="storage-error" class="banner danger hidden" role="alert">
+      このブラウザでは記録を保存できません。プライベートブラウズを使っている場合は、通常の画面で開いてください。
+    </div>
+
+    <div id="wage-notice" class="banner notice hidden">
+      <p>時給を設定すると、使ったお金を「何時間分の労働か」で表示します。</p>
+      <button type="button" id="go-settings">時給を設定する</button>
+    </div>
+
+    <!-- ① 今月のまとめ（開いてすぐ見える部分） -->
+    <section class="card status" aria-labelledby="summary-title">
+      <h2 id="summary-title" class="hidden">今月のまとめ</h2>
+      <div class="status-head">
+        <p class="remain-label" id="remain-label">今月の予算の残り</p>
+        <span class="chip hidden" id="pace-chip"></span>
+      </div>
+      <p class="remain-amount" id="remain-amount">—</p>
+      <p class="remain-labor" id="remain-labor"></p>
+      <div class="meter hidden" id="meter" aria-hidden="true">
+        <div class="meter-fill" id="meter-fill"></div>
+        <div class="meter-mark" id="meter-mark"></div>
+      </div>
+      <p class="meter-text hidden" id="meter-text"></p>
+      <p class="alert soft hidden" id="budget-alert"></p>
+      <dl class="lines">
+        <div class="line">
+          <dt>支出</dt>
+          <dd><small id="expense-labor"></small><span class="num" id="expense-total">0円</span></dd>
+        </div>
+        <div class="line">
+          <dt>収入</dt>
+          <dd><span class="num" id="income-total">0円</span></dd>
+        </div>
+        <div class="line">
+          <dt>差額</dt>
+          <dd><small id="diff-note"></small><span class="num" id="diff-total">0円</span></dd>
+        </div>
+      </dl>
+      <div class="mini hidden" id="mini">
+        <div class="mini-bar" id="mini-bar" aria-hidden="true"></div>
+        <ul class="mini-legend" id="mini-legend" aria-label="使いみちの上位"></ul>
+      </div>
+      <button type="button" class="primary record-btn" id="go-record">＋ 記録する</button>
+    </section>
+
+    <!-- キャラクター -->
+    <section class="card" id="char-card" aria-label="キャラクター">
+      <div class="char-card">
+        <div class="char-figure" id="char-figure"></div>
+        <div class="char-info">
+          <p class="char-name">レオ <small id="char-level"></small> <span class="xp-text" id="xp-text"></span></p>
+          <div class="xp-track"><div class="xp-fill" id="xp-fill"></div></div>
+          <p class="bubble" id="char-bubble" aria-live="polite">……</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 使いみちの内訳（円グラフ） -->
+    <section class="card" aria-labelledby="chart-title">
+      <h2 id="chart-title">使いみちの内訳</h2>
+      <p class="chart-sub" id="chart-sub"></p>
+      <div class="month-picker">
+        <label for="month-select">表示する月</label>
+        <select id="month-select"></select>
+      </div>
+      <div id="chart-body">
+        <div class="chart-wrap">
+          <svg id="pie" viewBox="0 0 200 200" role="img" aria-labelledby="chart-title chart-sub"></svg>
+          <div class="pie-center">
+            <span>支出合計</span>
+            <strong id="pie-total"></strong>
+            <small id="pie-labor"></small>
+          </div>
+        </div>
+        <ul class="breakdown" id="breakdown"></ul>
+      </div>
+      <p class="empty hidden" id="chart-empty">この月の支出はまだありません。</p>
+    </section>
+
+    <!-- ② 入力フォーム -->
+    <section class="card" aria-labelledby="form-title">
+      <h2 id="form-title">記録する</h2>
+      <p class="intake hidden" id="intake-message" role="status"></p>
+      <form id="entry-form" novalidate>
+        <span class="field-label">区分</span>
+        <div class="toggle" role="group" aria-label="区分">
+          <button type="button" data-type="expense" aria-pressed="true">支出</button>
+          <button type="button" data-type="income" aria-pressed="false">収入</button>
+        </div>
+
+        <label for="amount">金額</label>
+        <div class="amount-wrap">
+          <input id="amount" type="text" inputmode="numeric" autocomplete="off" placeholder="0">
+          <span>円</span>
+        </div>
+
+        <span class="field-label">項目</span>
+        <div id="cats" role="group" aria-label="項目"></div>
+        <button type="button" class="link-btn" id="go-categories">表示する項目を選ぶ</button>
+
+        <label for="date">日付</label>
+        <input id="date" type="date">
+
+        <label for="memo">メモ <span class="optional">（なくてもOK）</span></label>
+        <input id="memo" type="text" maxlength="100" placeholder="例：スーパー">
+
+        <button type="submit" class="primary" id="submit-btn">記録する</button>
+        <button type="button" class="secondary hidden" id="cancel-edit">修正をやめる</button>
+        <p class="message" id="form-message" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <!-- ③ 記録の一覧 -->
+    <section class="card" aria-labelledby="list-title">
+      <h2 id="list-title">今月の記録</h2>
+      <ul class="records" id="records"></ul>
+      <p class="empty hidden" id="records-empty">今月の記録はまだありません。</p>
+    </section>
+
+    <!-- ④ 設定 -->
+    <section class="card" aria-labelledby="settings-title" id="settings">
+      <h2 id="settings-title">設定</h2>
+      <form id="settings-form" novalidate>
+        <label for="wage">時給（手取り）</label>
+        <div class="amount-wrap">
+          <input id="wage" type="text" inputmode="numeric" autocomplete="off" placeholder="例：1500">
+          <span>円</span>
+        </div>
+        <p class="help">税金などを引いた、実際に受け取る額で考えた時給です。</p>
+
+        <label for="budget">1か月の支出予算</label>
+        <div class="amount-wrap">
+          <input id="budget" type="text" inputmode="numeric" autocomplete="off" placeholder="例：100000">
+          <span>円</span>
+        </div>
+        <p class="help">毎月同じ金額を使います。いつでも変更できます。</p>
+
+        <div id="character-settings">
+          <span class="field-label">キャラクター</span>
+          <div class="checks" role="radiogroup" aria-label="キャラクター">
+            <label class="check"><input type="radio" name="character" value="leo"><span>レオナルド（通称レオ）</span></label>
+            <label class="check"><input type="radio" name="character" value="none"><span>表示しない</span></label>
+          </div>
+          <p class="help">ヘルメットをかぶった、はずかしがりやの謎の人「レオナルド」、通称レオ。記録するほどレベルが上がって、少しずつ成長します。ほかのキャラクターは準備中です。</p>
+        </div>
+
+        <div id="category-settings">
+          <span class="field-label">使う項目</span>
+          <p class="help">記録するときに表示する項目を、ジャンルごとに選べます。「その他」は常に表示します。</p>
+          <h3 class="check-heading">支出の項目</h3>
+          <div id="expense-category-settings"></div>
+          <h3 class="check-heading">収入の項目</h3>
+          <div id="income-category-settings"></div>
+        </div>
+
+        <button type="submit" class="primary">設定を保存</button>
+        <p class="message" id="settings-message" aria-live="polite"></p>
+      </form>
+    </section>
+    <!-- 使い方 -->
+    <section class="card guide">
+      <details id="guide">
+        <summary>使い方</summary>
+        <p>使ったお金を「何時間分の労働か」で見る家計簿です。</p>
+        <ol>
+          <li>いちばん下の「設定」で、時給（手取り）・1か月の予算・使う項目を選んで保存します。</li>
+          <li>お金を使ったら、金額を入れて項目を選び「記録する」を押します。</li>
+          <li>「使いみちの内訳」の円グラフで、何にいくら・何時間分使ったかを確かめます。</li>
+        </ol>
+
+        <h3>iPhoneのタッチ決済とつなぐ</h3>
+        <p>iPhoneの「ショートカット」アプリを使うと、Apple Payで支払ったときに、金額とお店の名前が自動で入ります（今はiPhoneのみ）。</p>
+        <ol>
+          <li>「ショートカット」アプリで「オートメーション」→「＋」を押します。</li>
+          <li>「取引」を選び、使うカードを選んで「すぐに実行」にします。</li>
+          <li>「URL」アクションを追加し、下のアドレスの後ろに「ショートカットの入力」の「金額」を入れ、続けて <code>&amp;shop=</code> と「加盟店」を入れます。</li>
+          <li>「URLを開く」アクションを追加して完了です。</li>
+        </ol>
+        <span class="code" id="intake-url"></span>
+        <button type="button" class="link-btn" id="copy-url">アドレスをコピー</button>
+        <p class="help" id="copy-message" aria-live="polite"></p>
+        <p class="help">ホーム画面に追加したアイコンから開くと、Safariで開いたときと記録が分かれることがあります。タッチ決済とつなぐときは、Safariで開いて使ってください。</p>
+
+        <h3>記録の保存について</h3>
+        <p>記録と設定は、この端末のブラウザの中だけに保存されます。どこにも送信されません。ブラウザのデータを消すと、記録も消えます。</p>
+      </details>
+    </section>
+
+    <div class="char-pop hidden" id="char-pop" role="status" title="タップで閉じる">
+      <p class="bubble" id="pop-bubble"></p>
+      <div class="char-figure" id="pop-figure"></div>
+    </div>
+
+    <p class="footer">時間価値家計簿 ／ 記録はこの端末の中だけに保存されます</p>
+  </main>
+
+  <script>
+    'use strict';
+
+    // ===== 基本の決まりごと =====
+    const STORAGE_KEY = 'kakeibo-v1';
+    const CATEGORY_GROUPS = {
+      expense: [
+        { genre: '食事', items: ['食費', '外食', 'カフェ・おやつ'] },
+        { genre: '住まい', items: ['家賃', '水道光熱費', '通信費'] },
+        { genre: '暮らし', items: ['日用品', '衣服', '美容'] },
+        { genre: '移動', items: ['交通費', 'ガソリン'] },
+        { genre: '楽しみ', items: ['趣味', '交際費', 'サブスク', '旅行'] },
+        { genre: '健康・学び', items: ['医療費', '学習'] },
+        { genre: 'その他', items: ['その他'] }
+      ],
+      income: [
+        { genre: '働いて得たお金', items: ['給料', 'ボーナス', '副業'] },
+        { genre: 'そのほかの収入', items: ['臨時収入', '還付・給付', 'その他'] }
+      ]
+    };
+    const ALWAYS_ON = 'その他';
+    const DEFAULT_ENABLED = {
+      expense: ['食費', '日用品', '家賃', '交通費', 'その他'],
+      income: ['給料', '副業', 'その他']
+    };
+    const TYPE_LABEL = { expense: '支出', income: '収入' };
+    // 円グラフの色はジャンルごとに固定（順位で色を変えない）。「その他」は灰色
+    const GENRE_COLORS = {
+      '食事': '#2a78d6',
+      '住まい': '#eb6834',
+      '暮らし': '#1baf7a',
+      '移動': '#eda100',
+      '楽しみ': '#e87ba4',
+      '健康・学び': '#008300',
+      'その他': '#898781'
+    };
+    const MAX_AMOUNT = 100000000; // 1億円まで
+
+    // ===== データ =====
+    const state = {
+      settings: { hourlyWage: 0, monthlyBudget: 0, enabledCategories: normalizeEnabled(), character: 'leo' },
+      records: []
+    };
+    const formState = { type: 'expense', category: firstCategory('expense'), editingId: null };
+    let listMonth = todayString().slice(0, 7); // 一覧に表示している月（まとめは常に今月）
+
+    const $ = (id) => document.getElementById(id);
+
+    // ===== 項目のジャンルと選択 =====
+    function allCategories(type) {
+      return CATEGORY_GROUPS[type].flatMap((g) => g.items);
+    }
+
+    // 保存された選択を確かめる（古いデータには選択がないので、最初の項目を使う）
+    function normalizeEnabled(saved) {
+      const result = {};
+      for (const type of ['expense', 'income']) {
+        const list = saved && Array.isArray(saved[type]) ? saved[type] : DEFAULT_ENABLED[type];
+        result[type] = allCategories(type).filter((n) => n === ALWAYS_ON || list.includes(n));
+      }
+      return result;
+    }
+
+    function firstCategory(type) {
+      const enabled = state.settings.enabledCategories[type];
+      return allCategories(type).find((n) => enabled.includes(n));
+    }
+
+    // ===== 便利な関数 =====
+    function pad(n) { return String(n).padStart(2, '0'); }
+
+    function todayString() {
+      const d = new Date();
+      return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    }
+
+    function formatYen(n) {
+      return n.toLocaleString('ja-JP') + '円';
+    }
+
+    // 全角数字・カンマ・「円」などを取り除いて、整数に変換する。変換できなければ NaN。
+    function parseYen(text) {
+      const s = String(text)
+        .replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+        .replace(/．/g, '.')
+        .replace(/[,，、\s円¥￥]|JPY/gi, '')
+        .replace(/\.0+$/, ''); // タッチ決済の「1200.00」のような形にも対応
+      if (!/^\d+$/.test(s)) return NaN;
+      return Number(s);
+    }
+
+    function hasWage() {
+      return state.settings.hourlyWage > 0;
+    }
+
+    // 金額 ÷ 時給 を「労働2時間30分」の形にする。分単位で四捨五入。
+    function laborText(amount) {
+      if (!hasWage()) return '';
+      const minutes = Math.round(amount * 60 / state.settings.hourlyWage);
+      if (minutes === 0) return amount > 0 ? '労働1分未満' : '労働0分';
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      if (m === 0) return '労働' + h + '時間分';
+      if (h === 0) return '労働' + m + '分';
+      return '労働' + h + '時間' + m + '分';
+    }
+
+    function formatDate(dateStr) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const dow = '日月火水木金土'[new Date(y, m - 1, d).getDay()];
+      return m + '/' + d + '（' + dow + '）';
+    }
+
+    function isValidRecord(r) {
+      return r && typeof r === 'object'
+        && typeof r.id === 'string'
+        && /^\d{4}-\d{2}-\d{2}$/.test(r.date)
+        && (r.type === 'expense' || r.type === 'income')
+        && Number.isInteger(r.amount) && r.amount > 0
+        && typeof r.category === 'string';
+    }
+
+    function toNonNegInt(v) {
+      return Number.isInteger(v) && v >= 0 ? v : 0;
+    }
+
+    // ===== 保存と読み込み（ブラウザの localStorage） =====
+    function load() {
+      let raw = null;
+      try {
+        raw = localStorage.getItem(STORAGE_KEY);
+      } catch (e) {
+        showStorageError();
+        return;
+      }
+      if (!raw) return;
+      try {
+        const data = JSON.parse(raw);
+        const s = (data && data.settings) || {};
+        state.settings.hourlyWage = toNonNegInt(s.hourlyWage);
+        state.settings.monthlyBudget = toNonNegInt(s.monthlyBudget);
+        state.settings.enabledCategories = normalizeEnabled(s.enabledCategories);
+        state.settings.character = s.character === 'none' ? 'none' : 'leo';
+        state.records = Array.isArray(data && data.records) ? data.records.filter(isValidRecord) : [];
+      } catch (e) {
+        // 壊れたデータは読み込まない
+      }
+    }
+
+    function save() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        return true;
+      } catch (e) {
+        showStorageError();
+        return false;
+      }
+    }
+
+    function showStorageError() {
+      $('storage-error').classList.remove('hidden');
+    }
+
+    // ===== 画面の表示 =====
+    function currentMonthRecords() {
+      const month = todayString().slice(0, 7);
+      return state.records.filter((r) => r.date.slice(0, 7) === month);
+    }
+
+    function renderSummary() {
+      const records = currentMonthRecords();
+      const income = records.filter((r) => r.type === 'income').reduce((a, r) => a + r.amount, 0);
+      const expense = records.filter((r) => r.type === 'expense').reduce((a, r) => a + r.amount, 0);
+      const diff = income - expense;
+      const budget = state.settings.monthlyBudget;
+      const monthNum = new Date().getMonth() + 1;
+
+      const now = new Date();
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const elapsed = now.getDate() / daysInMonth; // 月のうち、経過した割合
+
+      $('wage-notice').classList.toggle('hidden', hasWage());
+      $('today-label').textContent = monthNum + '月' + now.getDate() + '日（' + '日月火水木金土'[now.getDay()] + '）';
+
+      // 予算の残り
+      $('remain-label').textContent = monthNum + '月の予算の残り';
+      const remainAmount = $('remain-amount');
+      const remainLabor = $('remain-labor');
+      const budgetAlert = $('budget-alert');
+      const chip = $('pace-chip');
+      const fill = $('meter-fill');
+      remainAmount.classList.remove('is-danger');
+      remainLabor.classList.remove('is-danger');
+      fill.classList.remove('warn', 'bad');
+      chip.className = 'chip';
+
+      const hasBudget = budget > 0;
+      budgetAlert.classList.toggle('hidden', hasBudget);
+      $('meter').classList.toggle('hidden', !hasBudget);
+      $('meter-text').classList.toggle('hidden', !hasBudget);
+      chip.classList.toggle('hidden', !hasBudget);
+
+      if (hasBudget) {
+        const remain = budget - expense;
+        const used = expense / budget;
+        fill.style.width = Math.min(used, 1) * 100 + '%';
+        $('meter-mark').style.left = elapsed * 100 + '%';
+        const usedText = '予算の' + percentText(expense, budget) + 'を使用';
+        if (remain >= 0) {
+          remainAmount.textContent = formatYen(remain);
+          remainLabor.textContent = laborText(remain);
+        } else {
+          const over = -remain;
+          remainAmount.textContent = '−' + formatYen(over);
+          remainAmount.classList.add('is-danger');
+          remainLabor.textContent = laborText(over) ? laborText(over) + 'の超過' : '';
+          remainLabor.classList.add('is-danger');
+        }
+        // ペースの判定：使った割合と、月の経過を比べる
+        if (remain < 0) {
+          chip.textContent = '× 予算オーバー';
+          chip.classList.add('bad');
+          fill.classList.add('bad');
+          $('meter-text').textContent = usedText + '（' + formatYen(-remain) + 'オーバー）';
+        } else if (used > elapsed + 0.05) {
+          chip.textContent = '！ 使いすぎペース';
+          chip.classList.add('warn');
+          fill.classList.add('warn');
+          $('meter-text').textContent = usedText + ' ・ 月の' + Math.round(elapsed * 100) + '%が経過';
+        } else {
+          chip.textContent = '✓ 順調';
+          chip.classList.add('good');
+          $('meter-text').textContent = usedText + ' ・ 月の' + Math.round(elapsed * 100) + '%が経過';
+        }
+      } else {
+        remainAmount.textContent = '予算が未設定';
+        remainLabor.textContent = '';
+        budgetAlert.textContent = '下の「設定」で1か月の支出予算を入れると、残りとペースが表示されます。';
+      }
+
+      // 合計と差額
+      $('expense-total').textContent = formatYen(expense);
+      $('expense-labor').textContent = laborText(expense);
+      $('income-total').textContent = formatYen(income);
+
+      const diffEl = $('diff-total');
+      const diffNote = $('diff-note');
+      diffNote.classList.toggle('is-danger', diff < 0);
+      if (diff < 0) {
+        diffEl.textContent = '−' + formatYen(-diff);
+        diffEl.classList.add('is-danger');
+        diffNote.textContent = '赤字';
+      } else {
+        diffEl.textContent = (diff > 0 ? '+' : '') + formatYen(diff);
+        diffEl.classList.remove('is-danger');
+        diffNote.textContent = '';
+      }
+
+      // 使いみちの上位（細い帯と上位3つ）
+      const byGenre = new Map();
+      for (const r of records) {
+        if (r.type !== 'expense') continue;
+        const genre = genreOf(r.category);
+        byGenre.set(genre, (byGenre.get(genre) || 0) + r.amount);
+      }
+      const bar = $('mini-bar');
+      const legend = $('mini-legend');
+      bar.textContent = '';
+      legend.textContent = '';
+      $('mini').classList.toggle('hidden', expense === 0);
+      if (expense > 0) {
+        for (const { genre } of CATEGORY_GROUPS.expense) {
+          if (!byGenre.has(genre)) continue;
+          const seg = document.createElement('span');
+          seg.style.flexGrow = String(byGenre.get(genre));
+          seg.style.background = GENRE_COLORS[genre];
+          bar.append(seg);
+        }
+        const ranked = [...byGenre.entries()].sort((a, b) => b[1] - a[1]);
+        for (const [genre, value] of ranked.slice(0, 3)) {
+          const li = document.createElement('li');
+          const sw = document.createElement('i');
+          sw.style.background = GENRE_COLORS[genre];
+          li.append(sw, document.createTextNode(genre + ' ' + percentText(value, expense)));
+          legend.append(li);
+        }
+        if (ranked.length > 3) {
+          const li = document.createElement('li');
+          li.textContent = 'ほか' + (ranked.length - 3) + 'つ';
+          legend.append(li);
+        }
+      }
+    }
+
+    function formatMonth(ym) {
+      const [y, m] = ym.split('-').map(Number);
+      return y + '年' + m + '月';
+    }
+
+    // 記録がある月をすべて選べるようにする（日付を間違えた記録も探せる）
+    function renderMonthSelect(current) {
+      const counts = new Map([[current, 0]]);
+      for (const r of state.records) {
+        const ym = r.date.slice(0, 7);
+        counts.set(ym, (counts.get(ym) || 0) + 1);
+      }
+      const select = $('month-select');
+      select.textContent = '';
+      for (const ym of [...counts.keys()].sort().reverse()) {
+        const option = document.createElement('option');
+        option.value = ym;
+        option.textContent = formatMonth(ym) + (ym === current ? '（今月）' : '') + ' ' + counts.get(ym) + '件';
+        select.append(option);
+      }
+      select.value = listMonth;
+    }
+
+    function renderList() {
+      const current = todayString().slice(0, 7);
+      // 表示中の月の記録がなくなったら、今月に戻す
+      if (!state.records.some((r) => r.date.slice(0, 7) === listMonth)) listMonth = current;
+      renderMonthSelect(current);
+
+      const isCurrent = listMonth === current;
+      $('list-title').textContent = isCurrent ? '今月の記録' : formatMonth(listMonth) + 'の記録';
+      $('records-empty').textContent = isCurrent ? '今月の記録はまだありません。' : 'この月の記録はありません。';
+
+      const list = $('records');
+      list.textContent = '';
+      const records = state.records.filter((r) => r.date.slice(0, 7) === listMonth).sort((a, b) =>
+        b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0));
+
+      $('records-empty').classList.toggle('hidden', records.length > 0);
+
+      for (const r of records) {
+        const li = document.createElement('li');
+        li.className = 'record ' + r.type;
+
+        const top = document.createElement('div');
+        top.className = 'rec-top';
+        const date = document.createElement('span');
+        date.textContent = formatDate(r.date);
+        const badge = document.createElement('span');
+        badge.className = 'badge';
+        badge.textContent = TYPE_LABEL[r.type];
+        const cat = document.createElement('span');
+        cat.className = 'rec-cat';
+        cat.textContent = r.category;
+        top.append(date, badge, cat);
+
+        const amount = document.createElement('div');
+        amount.className = 'rec-amount';
+        amount.textContent = (r.type === 'income' ? '+' : '') + formatYen(r.amount);
+
+        li.append(top, amount);
+
+        if (r.type === 'expense' && hasWage()) {
+          const labor = document.createElement('div');
+          labor.className = 'rec-labor';
+          labor.textContent = laborText(r.amount);
+          li.append(labor);
+        }
+
+        if (r.memo) {
+          const memo = document.createElement('div');
+          memo.className = 'rec-memo';
+          memo.textContent = r.memo;
+          li.append(memo);
+        }
+
+        const actions = document.createElement('div');
+        actions.className = 'rec-actions';
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.textContent = '修正';
+        editBtn.setAttribute('aria-label', formatDate(r.date) + ' ' + r.category + ' ' + formatYen(r.amount) + ' を修正');
+        editBtn.addEventListener('click', () => startEdit(r.id));
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'delete';
+        delBtn.textContent = '削除';
+        delBtn.setAttribute('aria-label', formatDate(r.date) + ' ' + r.category + ' ' + formatYen(r.amount) + ' を削除');
+        delBtn.addEventListener('click', () => deleteRecord(r.id));
+        actions.append(editBtn, delBtn);
+        li.append(actions);
+
+        list.append(li);
+      }
+    }
+
+    function renderTypeAndCategories() {
+      document.querySelectorAll('.toggle button').forEach((b) => {
+        b.setAttribute('aria-pressed', String(b.dataset.type === formState.type));
+      });
+      const box = $('cats');
+      box.textContent = '';
+      const enabled = state.settings.enabledCategories[formState.type];
+
+      const addGroup = (title, names) => {
+        if (names.length === 0) return;
+        const group = document.createElement('div');
+        group.className = 'cat-group';
+        const heading = document.createElement('p');
+        heading.className = 'cat-group-title';
+        heading.textContent = title;
+        const grid = document.createElement('div');
+        grid.className = 'cats';
+        for (const name of names) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.textContent = name;
+          b.setAttribute('aria-pressed', String(name === formState.category));
+          b.addEventListener('click', () => {
+            formState.category = name;
+            renderTypeAndCategories();
+          });
+          grid.append(b);
+        }
+        group.append(heading, grid);
+        box.append(group);
+      };
+
+      // 修正中の記録の項目は、設定で外していても表示する
+      for (const { genre, items } of CATEGORY_GROUPS[formState.type]) {
+        addGroup(genre, items.filter((n) => enabled.includes(n) || n === formState.category));
+      }
+      if (!allCategories(formState.type).includes(formState.category)) {
+        addGroup('以前の項目', [formState.category]);
+      }
+    }
+
+    function renderCategorySettings() {
+      for (const type of ['expense', 'income']) {
+        const box = $(type + '-category-settings');
+        box.textContent = '';
+        for (const { genre, items } of CATEGORY_GROUPS[type]) {
+          const fieldset = document.createElement('fieldset');
+          fieldset.className = 'genre';
+          const legend = document.createElement('legend');
+          legend.textContent = genre;
+          const grid = document.createElement('div');
+          grid.className = 'checks';
+          for (const name of items) {
+            const label = document.createElement('label');
+            label.className = 'check' + (name === ALWAYS_ON ? ' locked' : '');
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.dataset.type = type;
+            input.value = name;
+            input.checked = state.settings.enabledCategories[type].includes(name);
+            input.disabled = name === ALWAYS_ON;
+            const text = document.createElement('span');
+            text.textContent = name;
+            label.append(input, text);
+            grid.append(label);
+          }
+          fieldset.append(legend, grid);
+          box.append(fieldset);
+        }
+      }
+    }
+
+    function genreOf(category) {
+      const group = CATEGORY_GROUPS.expense.find((g) => g.items.includes(category));
+      return group ? group.genre : 'その他';
+    }
+
+    function percentText(part, total) {
+      const p = part * 100 / total;
+      return p > 0 && p < 1 ? '1%未満' : Math.round(p) + '%';
+    }
+
+    // 表示する月の支出を、ジャンル別のドーナツ型の円グラフと一覧で表示する
+    function renderChart() {
+      const records = state.records.filter((r) => r.type === 'expense' && r.date.slice(0, 7) === listMonth);
+      const total = records.reduce((a, r) => a + r.amount, 0);
+      $('chart-sub').textContent = formatMonth(listMonth) + 'の支出（ジャンル別）';
+
+      const byGenre = new Map();
+      for (const r of records) {
+        const genre = genreOf(r.category);
+        if (!byGenre.has(genre)) byGenre.set(genre, { total: 0, items: new Map() });
+        const entry = byGenre.get(genre);
+        entry.total += r.amount;
+        entry.items.set(r.category, (entry.items.get(r.category) || 0) + r.amount);
+      }
+
+      const svg = $('pie');
+      const list = $('breakdown');
+      svg.textContent = '';
+      list.textContent = '';
+      $('chart-empty').classList.toggle('hidden', total > 0);
+      $('chart-body').classList.toggle('hidden', total === 0);
+      if (total === 0) return;
+
+      $('pie-total').textContent = formatYen(total);
+      $('pie-labor').textContent = laborText(total);
+
+      // グラフはジャンルの決まった順に描く
+      const NS = 'http://www.w3.org/2000/svg';
+      const R = 76;
+      const C = 2 * Math.PI * R;
+      const genres = CATEGORY_GROUPS.expense.map((g) => g.genre).filter((g) => byGenre.has(g));
+      const gap = genres.length > 1 ? 2 : 0; // 区切りのすき間
+      let offset = 0;
+      for (const genre of genres) {
+        const len = byGenre.get(genre).total / total * C;
+        const circle = document.createElementNS(NS, 'circle');
+        circle.setAttribute('cx', '100');
+        circle.setAttribute('cy', '100');
+        circle.setAttribute('r', String(R));
+        circle.setAttribute('fill', 'none');
+        circle.setAttribute('stroke', GENRE_COLORS[genre]);
+        circle.setAttribute('stroke-width', '32');
+        const visible = Math.max(len - gap, 1);
+        circle.setAttribute('stroke-dasharray', visible + ' ' + (C - visible));
+        circle.setAttribute('stroke-dashoffset', String(-offset));
+        circle.setAttribute('transform', 'rotate(-90 100 100)');
+        const title = document.createElementNS(NS, 'title');
+        title.textContent = genre + ' ' + formatYen(byGenre.get(genre).total) + '（' + percentText(byGenre.get(genre).total, total) + '）';
+        circle.append(title);
+        svg.append(circle);
+        offset += len;
+      }
+
+      // 一覧は金額の大きい順
+      const ranked = genres.slice().sort((a, b) => byGenre.get(b).total - byGenre.get(a).total);
+      for (const genre of ranked) {
+        const entry = byGenre.get(genre);
+        const li = document.createElement('li');
+        li.className = 'bd-row';
+        const swatch = document.createElement('span');
+        swatch.className = 'swatch';
+        swatch.style.background = GENRE_COLORS[genre];
+        const main = document.createElement('div');
+        main.className = 'bd-main';
+
+        const top = document.createElement('div');
+        top.className = 'bd-top';
+        const name = document.createElement('span');
+        name.className = 'bd-name';
+        name.textContent = genre;
+        const amount = document.createElement('span');
+        amount.className = 'bd-amount';
+        amount.textContent = formatYen(entry.total);
+        top.append(name, amount);
+
+        const sub = document.createElement('div');
+        sub.className = 'bd-sub';
+        const pct = document.createElement('span');
+        pct.textContent = percentText(entry.total, total);
+        const labor = document.createElement('span');
+        labor.className = 'bd-labor';
+        labor.textContent = laborText(entry.total);
+        sub.append(pct, labor);
+
+        const items = document.createElement('div');
+        items.className = 'bd-items';
+        items.textContent = [...entry.items.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .map(([n, v]) => n + ' ' + formatYen(v))
+          .join(' ・ ');
+
+        main.append(top, sub, items);
+        li.append(swatch, main);
+        list.append(li);
+      }
+    }
+
+    // ===== キャラクター（レオナルド、通称レオ） =====
+    const PER_LEVEL = 5;   // 5回記録するごとにレベルアップ
+    const MAX_LEVEL = 10;
+
+    function currentLevel() {
+      return Math.min(MAX_LEVEL, 1 + Math.floor(state.records.length / PER_LEVEL));
+    }
+
+    // レベルが上がるほど、少し大きくなり、持ち物が増える
+    function characterSVG(level) {
+      const ink = '#1f2933';
+      const gold = '#e0a800';
+      const scale = 1 + (level - 1) * 0.02;
+      const heartFill = level >= 6 ? gold : level >= 2 ? '#e87ba4' : 'none';
+      const capeColor = level >= 8 ? '#6250d6' : '#c62828';
+      const parts = [];
+      if (level >= 3) parts.push(`<path d="M44 100 L${level >= 8 ? 26 : 32} ${level >= 8 ? 158 : 148} L${level >= 8 ? 90 : 84} ${level >= 8 ? 158 : 148} L72 100 Z" fill="${capeColor}"/>`);
+      parts.push(`<path d="M46 134 L44 162 L54 162 L58 142 L62 162 L72 162 L70 134 Z" fill="#fff" stroke="${ink}" stroke-width="3" stroke-linejoin="round"/>`);
+      parts.push(`<rect x="44" y="98" width="28" height="40" rx="6" fill="#fff" stroke="${ink}" stroke-width="3"/>`);
+      parts.push(`<rect x="47" y="104" width="22" height="22" rx="3" fill="${ink}"/>`);
+      parts.push(`<path d="M46 104 L32 128 L38 131 L49 113 Z M70 104 L84 128 L78 131 L67 113 Z" fill="#fff" stroke="${ink}" stroke-width="3" stroke-linejoin="round"/>`);
+      if (level >= 9) parts.push(`<circle cx="58" cy="115" r="5" fill="${gold}" stroke="#fff" stroke-width="1.5"/>`);
+      parts.push(`<path d="M72 46 Q80 32 85 20" fill="none" stroke="${ink}" stroke-width="2.5" stroke-linecap="round"/>`);
+      parts.push(`<path d="M86 21 C78 15 78 7 83 7 C85 7 86 9 86 10 C86 9 87 7 89 7 C94 7 94 15 86 21 Z" fill="${heartFill}" stroke="${ink}" stroke-width="2"/>`);
+      parts.push(`<circle cx="58" cy="70" r="30" fill="${ink}"/>`);
+      parts.push(`<path d="M34 74 Q34 52 58 50 Q76 50 82 64 L82 80 Q60 88 36 82 Z" fill="#3a4a5e"/>`);
+      parts.push(`<path d="M44 62 Q50 56 60 56" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".7"/>`);
+      if (level >= 4) parts.push(`<circle cx="58" cy="70" r="30" fill="none" stroke="${gold}" stroke-width="3"/>`);
+      if (level >= 5) {
+        const big = level >= 10;
+        parts.push(`<path d="${big ? 'M40 46 L42 28 L50 38 L58 24 L66 38 L74 28 L76 46 Z' : 'M46 44 L48 34 L53 40 L58 32 L63 40 L68 34 L70 44 Z'}" fill="${gold}" stroke="${ink}" stroke-width="1.5" stroke-linejoin="round"/>`);
+        if (big) parts.push(`<circle cx="58" cy="40" r="3" fill="#c62828"/>`);
+      }
+      if (level >= 7) {
+        const star = (x, y) => `<path d="M${x} ${y - 6} L${x + 1.5} ${y - 1.5} L${x + 6} ${y} L${x + 1.5} ${y + 1.5} L${x} ${y + 6} L${x - 1.5} ${y + 1.5} L${x - 6} ${y} L${x - 1.5} ${y - 1.5} Z" fill="${gold}"/>`;
+        parts.push(star(18, 60), star(100, 96), star(22, 120));
+      }
+      return `<svg viewBox="-6 -26 132 196" role="img" aria-label="レオ レベル${level}">` +
+        `<g transform="translate(58 162) scale(${scale.toFixed(2)}) translate(-58 -162)">${parts.join('')}</g></svg>`;
+    }
+
+    function renderCharacter() {
+      const on = state.settings.character !== 'none';
+      $('char-card').classList.toggle('hidden', !on);
+      if (!on) {
+        $('char-pop').classList.add('hidden');
+        return;
+      }
+      const level = currentLevel();
+      $('char-figure').innerHTML = characterSVG(level);
+      $('char-level').textContent = 'Lv.' + level;
+      if (level >= MAX_LEVEL) {
+        $('xp-fill').style.width = '100%';
+        $('xp-text').textContent = '最高レベル';
+      } else {
+        const done = state.records.length % PER_LEVEL;
+        $('xp-fill').style.width = (done / PER_LEVEL * 100) + '%';
+        $('xp-text').textContent = 'あと' + (PER_LEVEL - done) + '回でLv.' + (level + 1);
+      }
+    }
+
+    let popTimer = null;
+    function characterReact(type, amount, levelBefore) {
+      if (state.settings.character === 'none') return;
+      const budget = state.settings.monthlyBudget;
+      const monthExpense = currentMonthRecords().filter((r) => r.type === 'expense').reduce((a, r) => a + r.amount, 0);
+      let line = 'いいね！';
+      let sub = '';
+      if (type === 'expense') {
+        // 大きな買い物（予算の10%以上）や予算オーバーのときは、返品をすすめる
+        const big = budget > 0 ? (amount >= budget * 0.1 || monthExpense > budget)
+          : hasWage() && amount >= state.settings.hourlyWage * 3;
+        if (big) line = 'まだ返品可能！レシート残してて';
+        if (budget > 0) sub = 'この支出は予算の' + percentText(amount, budget);
+        const labor = laborText(amount);
+        if (labor) sub += (sub ? '（' + labor + '）' : labor);
+      } else {
+        sub = '収入 +' + formatYen(amount);
+      }
+      const level = currentLevel();
+      if (level > levelBefore) sub += (sub ? '\n' : '') + 'レベル' + level + 'になった！';
+
+      const shake = line !== 'いいね！';
+      for (const [bubbleId, figureId] of [['char-bubble', 'char-figure'], ['pop-bubble', 'pop-figure']]) {
+        const bubble = $(bubbleId);
+        bubble.textContent = line;
+        if (sub) {
+          const small = document.createElement('span');
+          small.className = 'bubble-sub';
+          small.style.whiteSpace = 'pre-line';
+          small.textContent = sub;
+          bubble.append(small);
+        }
+        const fig = $(figureId);
+        fig.innerHTML = characterSVG(level);
+        fig.classList.remove('hop', 'shake');
+        void fig.offsetWidth; // アニメーションをやり直す
+        fig.classList.add(shake ? 'shake' : 'hop');
+      }
+      $('char-pop').classList.remove('hidden');
+      clearTimeout(popTimer);
+      popTimer = setTimeout(() => $('char-pop').classList.add('hidden'), 4500);
+    }
+
+    function renderAll() {
+      renderSummary();
+      renderCharacter();
+      renderList();
+      renderChart();
+    }
+
+    function setMessage(id, text, kind) {
+      const el = $(id);
+      el.textContent = text;
+      el.className = 'message' + (kind ? ' ' + kind : '');
+    }
+
+    // ===== 入力フォーム =====
+    function resetForm() {
+      formState.type = 'expense';
+      formState.category = firstCategory('expense');
+      formState.editingId = null;
+      $('amount').value = '';
+      $('memo').value = '';
+      $('date').value = todayString();
+      $('form-title').textContent = '記録する';
+      $('submit-btn').textContent = '記録する';
+      $('cancel-edit').classList.add('hidden');
+      $('intake-message').classList.add('hidden');
+      renderTypeAndCategories();
+    }
+
+    function startEdit(id) {
+      const r = state.records.find((x) => x.id === id);
+      if (!r) return;
+      formState.type = r.type;
+      formState.category = r.category;
+      formState.editingId = r.id;
+      $('amount').value = String(r.amount);
+      $('memo').value = r.memo || '';
+      $('date').value = r.date;
+      $('form-title').textContent = '記録を修正';
+      $('submit-btn').textContent = '修正を保存';
+      $('cancel-edit').classList.remove('hidden');
+      setMessage('form-message', '');
+      renderTypeAndCategories();
+      $('form-title').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      $('amount').focus({ preventScroll: true });
+      $('amount').select(); // 打ち直しやすいように、金額を選択しておく
+    }
+
+    function deleteRecord(id) {
+      const r = state.records.find((x) => x.id === id);
+      if (!r) return;
+      const ok = window.confirm(formatDate(r.date) + ' ' + r.category + ' ' + formatYen(r.amount) + '\nこの記録を削除しますか？');
+      if (!ok) return;
+      state.records = state.records.filter((x) => x.id !== id);
+      if (formState.editingId === id) resetForm();
+      save();
+      renderAll();
+      setMessage('form-message', '記録を削除しました。', 'ok');
+    }
+
+    $('entry-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const amount = parseYen($('amount').value);
+      const date = $('date').value;
+      const memo = $('memo').value.trim();
+
+      if (!Number.isFinite(amount) || amount <= 0) {
+        setMessage('form-message', '金額を1円以上の数字で入力してください。', 'error');
+        $('amount').focus();
+        return;
+      }
+      if (amount > MAX_AMOUNT) {
+        setMessage('form-message', '金額が大きすぎます。1億円以下で入力してください。', 'error');
+        $('amount').focus();
+        return;
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        setMessage('form-message', '日付を選んでください。', 'error');
+        $('date').focus();
+        return;
+      }
+
+      const wasEditing = formState.editingId !== null;
+      const levelBefore = currentLevel();
+      if (wasEditing) {
+        const r = state.records.find((x) => x.id === formState.editingId);
+        if (r) {
+          r.type = formState.type;
+          r.category = formState.category;
+          r.amount = amount;
+          r.date = date;
+          r.memo = memo;
+        }
+      } else {
+        state.records.push({
+          id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+          date: date,
+          type: formState.type,
+          amount: amount,
+          category: formState.category,
+          memo: memo,
+          createdAt: Date.now()
+        });
+      }
+
+      const type = formState.type;
+      const category = formState.category;
+      const saved = save();
+      listMonth = date.slice(0, 7); // 保存した記録が見える月に切り替える
+      resetForm();
+      renderAll();
+
+      let text = (wasEditing ? '修正しました：' : '記録しました：') + category + ' ' + formatYen(amount);
+      if (type === 'expense' && hasWage()) text += '（' + laborText(amount) + '）';
+      if (date.slice(0, 7) !== todayString().slice(0, 7)) {
+        text += '\n※今月ではない日付なので、今月の合計には入りません。下の一覧は' + formatMonth(date.slice(0, 7)) + 'に切り替えました。';
+      }
+      if (!saved) text += '\n※このブラウザでは保存できなかったため、再読み込みすると消えます。';
+      setMessage('form-message', text, saved ? 'ok' : 'error');
+      $('form-message').style.whiteSpace = 'pre-line';
+      if (!wasEditing) characterReact(type, amount, levelBefore);
+    });
+
+    $('char-pop').addEventListener('click', () => $('char-pop').classList.add('hidden'));
+
+    document.querySelectorAll('.toggle button').forEach((b) => {
+      b.addEventListener('click', () => {
+        if (formState.type === b.dataset.type) return;
+        formState.type = b.dataset.type;
+        formState.category = firstCategory(formState.type);
+        renderTypeAndCategories();
+      });
+    });
+
+    $('cancel-edit').addEventListener('click', () => {
+      resetForm();
+      setMessage('form-message', '修正をやめました。');
+    });
+
+    // ===== 設定 =====
+    function fillSettings() {
+      $('wage').value = state.settings.hourlyWage > 0 ? String(state.settings.hourlyWage) : '';
+      $('budget').value = state.settings.monthlyBudget > 0 ? String(state.settings.monthlyBudget) : '';
+      renderCategorySettings();
+      document.querySelectorAll('input[name="character"]').forEach((r) => {
+        r.checked = r.value === state.settings.character;
+      });
+    }
+
+    $('settings-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const wageText = $('wage').value.trim();
+      const budgetText = $('budget').value.trim();
+      const wage = wageText === '' ? 0 : parseYen(wageText);
+      const budget = budgetText === '' ? 0 : parseYen(budgetText);
+
+      if (!Number.isFinite(wage) || wage > MAX_AMOUNT) {
+        setMessage('settings-message', '時給は0以上の数字で入力してください。', 'error');
+        $('wage').focus();
+        return;
+      }
+      if (!Number.isFinite(budget) || budget > MAX_AMOUNT) {
+        setMessage('settings-message', '予算は0以上の数字で入力してください。', 'error');
+        $('budget').focus();
+        return;
+      }
+
+      state.settings.hourlyWage = wage;
+      state.settings.monthlyBudget = budget;
+      const checked = { expense: [], income: [] };
+      document.querySelectorAll('#category-settings input:checked').forEach((c) => {
+        checked[c.dataset.type].push(c.value);
+      });
+      state.settings.enabledCategories = normalizeEnabled(checked);
+      const charInput = document.querySelector('input[name="character"]:checked');
+      state.settings.character = charInput && charInput.value === 'none' ? 'none' : 'leo';
+      if (formState.editingId === null && !state.settings.enabledCategories[formState.type].includes(formState.category)) {
+        formState.category = firstCategory(formState.type);
+      }
+      const saved = save();
+      fillSettings();
+      renderTypeAndCategories();
+      renderAll();
+      setMessage('settings-message', saved ? '設定を保存しました。' : 'このブラウザでは保存できませんでした。', saved ? 'ok' : 'error');
+    });
+
+    $('go-settings').addEventListener('click', () => {
+      $('settings').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      $('wage').focus({ preventScroll: true });
+    });
+
+    $('go-record').addEventListener('click', () => {
+      $('form-title').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      $('amount').focus({ preventScroll: true });
+    });
+
+    $('go-categories').addEventListener('click', () => {
+      $('category-settings').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    $('month-select').addEventListener('change', (e) => {
+      listMonth = e.target.value;
+      renderList();
+      renderChart();
+    });
+
+    // ===== タッチ決済（iPhoneのショートカット）からの受け取り =====
+    // アドレスの「#」より後ろ（サーバーに送られない部分）で受け取る。
+    // 例：…/#amount=¥1,200&shop=○○マート
+    function readIntake() {
+      const hash = location.hash.slice(1);
+      if (!hash) return null;
+      const params = new URLSearchParams(hash);
+      if (!params.has('amount') && !params.has('shop')) return null;
+      return {
+        amount: params.get('amount') || '',
+        shop: (params.get('shop') || '').trim().slice(0, 100)
+      };
+    }
+
+    function applyIntake() {
+      const data = readIntake();
+      if (!data) return;
+      // 再読み込みで同じ内容が二重に入らないよう、すぐにアドレスから消す
+      history.replaceState(null, '', location.pathname + location.search);
+      resetForm();
+      const amount = parseYen(data.amount);
+      const ok = Number.isFinite(amount) && amount > 0 && amount <= MAX_AMOUNT;
+      if (ok) $('amount').value = String(amount);
+      $('memo').value = data.shop;
+      const box = $('intake-message');
+      box.textContent = ok
+        ? 'タッチ決済から入力しました' + (data.shop ? '（' + data.shop + '）' : '') + '。項目を選んで「記録する」を押してください。'
+        : 'タッチ決済の金額を読み取れませんでした。金額を入力してください。';
+      box.classList.remove('hidden');
+      setMessage('form-message', '');
+      $('form-title').scrollIntoView({ block: 'start' });
+    }
+
+    // 使い方に、このページのアドレスを表示する
+    function intakeBaseUrl() {
+      return location.href.split('#')[0] + '#amount=';
+    }
+
+    $('copy-url').addEventListener('click', async () => {
+      const text = intakeBaseUrl();
+      try {
+        await navigator.clipboard.writeText(text);
+        $('copy-message').textContent = 'コピーしました。';
+      } catch (e) {
+        const range = document.createRange();
+        range.selectNodeContents($('intake-url'));
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        $('copy-message').textContent = 'コピーできなかったので、アドレスを選択しました。長押ししてコピーしてください。';
+      }
+    });
+
+    window.addEventListener('hashchange', applyIntake);
+
+    // ===== はじめに =====
+    load();
+    fillSettings();
+    resetForm();
+    renderAll();
+    $('intake-url').textContent = intakeBaseUrl();
+    applyIntake();
+  </script>
+</body>
+</html>
